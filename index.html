@@ -234,6 +234,8 @@
           <li>把这个文件命名为 <code>index.html</code>。</li>
           <li>直接上传到 Vercel 项目根目录即可。</li>
           <li>这是纯前端页面，不依赖 Vercel Functions。</li>
+          <li>Withdrawable 已按代币 decimals 做单位换算，不再直接显示链上原始整数。</li>
+          <li>yearlyYieldInUsd 按 18 位精度缩放后展示，避免显示异常超大数字。</li>
           <li>如果后面你要做更高频，建议改成 WebSocket 推送，而不是继续加快 fetch 轮询。</li>
         </ul>
       </div>
@@ -241,7 +243,7 @@
 
     <script>
       const API_URL = 'https://api.fluid.instadapp.io/v2/lending/56/tokens';
-      const STORAGE_KEY = 'fluid-lending-24h-history-html-v1';
+      const STORAGE_KEY = 'fluid-lending-24h-history-html-v2';
       const POLL_MS = 1000;
       const RETENTION_MS = 24 * 60 * 60 * 1000;
 
@@ -314,11 +316,89 @@
         }).format(new Date(ts));
       }
 
+      function shiftDecimalString(value, decimals) {
+        if (value === null || value === undefined) return '0';
+
+        let s = String(value).trim();
+        if (!s) return '0';
+
+        let sign = '';
+        if (s[0] === '-') {
+          sign = '-';
+          s = s.slice(1);
+        }
+
+        if (!/^\d+(\.\d+)?$/.test(s)) {
+          const fallback = Number(sign + s);
+          if (Number.isFinite(fallback)) {
+            return String(fallback / Math.pow(10, decimals));
+          }
+          return '0';
+        }
+
+        const parts = s.split('.');
+        let intPart = parts[0] || '0';
+        let fracPart = parts[1] || '';
+
+        intPart = intPart.replace(/^0+(?=\d)/, '');
+        if (intPart === '') intPart = '0';
+
+        const digits = (intPart + fracPart).replace(/^0+(?=\d)/, '') || '0';
+        const totalScale = decimals - fracPart.length;
+
+        let result;
+        if (totalScale >= 0) {
+          if (digits.length <= totalScale) {
+            const zeros = '0'.repeat(totalScale - digits.length);
+            result = '0.' + zeros + digits;
+          } else {
+            const idx = digits.length - totalScale;
+            const whole = digits.slice(0, idx);
+            const frac = digits.slice(idx);
+            result = frac ? whole + '.' + frac : whole;
+          }
+        } else {
+          result = digits + '0'.repeat(-totalScale);
+        }
+
+        result = result.replace(/^0+(?=\d)/, '');
+        if (result.startsWith('.')) result = '0' + result;
+        if (result.includes('.')) {
+          result = result.replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
+        }
+        if (result === '') result = '0';
+
+        return sign + result;
+      }
+
+      function formatTokenAmount(rawValue, decimals, maximumFractionDigits = 6) {
+        const shifted = shiftDecimalString(rawValue, decimals);
+        const num = Number(shifted);
+        if (Number.isFinite(num)) {
+          return new Intl.NumberFormat('en-US', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits,
+          }).format(num);
+        }
+        return shifted;
+      }
+
+      function formatScaledUsd(rawValue, decimals) {
+        const shifted = shiftDecimalString(rawValue, decimals);
+        const num = Number(shifted);
+        if (Number.isFinite(num)) {
+          return fmtCompactUsd(num);
+        }
+        return shifted;
+      }
+
       function buildPoint(payload) {
         const tokens = Array.isArray(payload && payload.data) ? payload.data : [];
         const tokenMap = {};
 
         tokens.forEach(t => {
+          const decimals = safeNum((t.asset && t.asset.decimals) || t.decimals || 18);
+
           tokenMap[t.symbol] = {
             symbol: t.symbol,
             name: t.name,
@@ -328,14 +408,25 @@
             rewardsRate: safeNum(t.rewardsRate),
             totalAssets: safeNum(t.totalAssets),
             assetPrice: safeNum(t.asset && t.asset.price),
-            withdrawable: safeNum(t.liquiditySupplyData && t.liquiditySupplyData.withdrawable),
+            decimals,
+            withdrawableRaw: (t.liquiditySupplyData && t.liquiditySupplyData.withdrawable) || '0',
+            withdrawalLimitRaw: (t.liquiditySupplyData && t.liquiditySupplyData.withdrawalLimit) || '0',
+            withdrawableDisplay: formatTokenAmount(
+              (t.liquiditySupplyData && t.liquiditySupplyData.withdrawable) || '0',
+              decimals,
+              6
+            ),
           };
         });
 
         return {
           ts: Date.now(),
           totalAssetsInUsd: safeNum(payload && payload.totalAssetsInUsd),
-          yearlyYieldInUsd: safeNum(payload && payload.yearlyYieldInUsd),
+          yearlyYieldInUsdRaw: (payload && payload.yearlyYieldInUsd) || '0',
+          yearlyYieldInUsdDisplay: formatScaledUsd(
+            (payload && payload.yearlyYieldInUsd) || '0',
+            18
+          ),
           tokenMap,
         };
       }
@@ -369,7 +460,7 @@
 
       function renderCards(latest) {
         document.getElementById('totalAssetsValue').textContent = latest ? fmtUsd(latest.totalAssetsInUsd) : '-';
-        document.getElementById('yearlyYieldValue').textContent = latest ? fmtCompactUsd(latest.yearlyYieldInUsd) : '-';
+        document.getElementById('yearlyYieldValue').textContent = latest ? latest.yearlyYieldInUsdDisplay : '-';
         document.getElementById('sampleCountValue').textContent = history.length.toLocaleString();
         document.getElementById('lastOkValue').textContent = latest ? fmtTime(latest.ts) : '-';
       }
@@ -389,7 +480,7 @@
             <td>${fmtPctFromBpsLike(row.supplyRate)}</td>
             <td>${fmtPctFromBpsLike(row.rewardsRate)}</td>
             <td>${fmtUsd(row.assetPrice)}</td>
-            <td>${row.withdrawable.toLocaleString()}</td>
+            <td>${row.withdrawableDisplay}</td>
           `;
           tbody.appendChild(tr);
         });
