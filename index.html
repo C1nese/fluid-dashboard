@@ -945,7 +945,8 @@
       async function refreshAlertStatus() {
         try {
           const res = await fetch("/api/alert-status", { cache: "no-store" });
-          const json = await res.json();
+          const text = await res.text();
+          const json = JSON.parse(text);
           if (!res.ok || !json.ok) {
             throw new Error(json.error || "alert status unavailable");
           }
@@ -966,7 +967,13 @@
             method: "POST",
             headers: { "Content-Type": "application/json" },
           });
-          const json = await res.json();
+          const text = await res.text();
+          let json;
+          try {
+            json = JSON.parse(text);
+          } catch {
+            throw new Error(text.slice(0, 140) || "后端没有返回 JSON");
+          }
           if (!res.ok || !json.ok) {
             throw new Error(json.error || "Bark test failed");
           }
