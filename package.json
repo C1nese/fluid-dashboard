@@ -1,0 +1,14 @@
+{
+  "name": "fluid-lending-bark-alerts",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Backend poller for Fluid Lending USDT liquidity alerts via Bark",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "check": "node --check server.js && node --check lib/config.js && node --check lib/lending-alerts.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}
