@@ -546,6 +546,18 @@
         }).format(safeNum(value));
       }
 
+      function fmtTokenExact(value) {
+        const num = safeNum(value);
+        const maxDigits = num >= 1000 ? 2 : num >= 1 ? 6 : 8;
+        return new Intl.NumberFormat("en-US", {
+          maximumFractionDigits: maxDigits,
+        }).format(num);
+      }
+
+      function scaleApiYearlyYield(rawValue) {
+        return scaleRawToNumber(rawValue, 14);
+      }
+
       function fmtPctFromBpsLike(value) {
         return (safeNum(value) / 100).toFixed(2) + "%";
       }
@@ -591,20 +603,16 @@
         intPart = intPart.replace(/^0+(?=\d)/, "") || "0";
 
         const digits = (intPart + fracPart).replace(/^0+(?=\d)/, "") || "0";
-        const totalScale = decimals - fracPart.length;
+        const totalScale = decimals + fracPart.length;
         let result = "";
 
-        if (totalScale >= 0) {
-          if (digits.length <= totalScale) {
-            result = "0." + "0".repeat(totalScale - digits.length) + digits;
-          } else {
-            const idx = digits.length - totalScale;
-            const whole = digits.slice(0, idx);
-            const frac = digits.slice(idx);
-            result = frac ? whole + "." + frac : whole;
-          }
+        if (digits.length <= totalScale) {
+          result = "0." + "0".repeat(totalScale - digits.length) + digits;
         } else {
-          result = digits + "0".repeat(-totalScale);
+          const idx = digits.length - totalScale;
+          const whole = digits.slice(0, idx);
+          const frac = digits.slice(idx);
+          result = frac ? whole + "." + frac : whole;
         }
 
         result = result.replace(/^0+(?=\d)/, "");
@@ -658,14 +666,15 @@
             totalAssetsRaw,
             totalAssetsScaled,
             totalAssetsDisplay: fmtCompactNumber(totalAssetsScaled, 2),
-            totalAssetsFullDisplay: fmtFullNumber(totalAssetsScaled, 2),
+            totalAssetsFullDisplay: fmtTokenExact(totalAssetsScaled),
             totalAssetsInUsd: tokenTvlUsd,
             assetPrice,
             decimals,
             withdrawableRaw,
             withdrawableScaled: liquidityScaled,
-            withdrawableDisplay: fmtCompactNumber(liquidityScaled, 2),
-            withdrawableFullDisplay: fmtFullNumber(liquidityScaled, 2),
+            withdrawableDisplay: fmtCompactUsd(liquidityUsd),
+            withdrawableTokenDisplay: fmtCompactNumber(liquidityScaled, 2),
+            withdrawableFullDisplay: fmtTokenExact(liquidityScaled),
             liquidityInUsd: liquidityUsd,
             utilization,
             yearlyYieldUsd,
@@ -679,7 +688,8 @@
           ts: Date.now(),
           totalAssetsInUsd,
           apiYearlyYieldRaw: (payload && payload.yearlyYieldInUsd) || "0",
-          yearlyYieldInUsd: computedYearlyYieldInUsd,
+          yearlyYieldInUsd: scaleApiYearlyYield((payload && payload.yearlyYieldInUsd) || "0"),
+          derivedYearlyYieldInUsd: computedYearlyYieldInUsd,
           tokenCount: tokens.length,
           totalLiquidityInUsd,
           blendedApr,
@@ -798,7 +808,7 @@
               <div>
                 <div class="token-stat-label">Liquidity 流动性</div>
                 <div class="token-stat-value">${row.withdrawableDisplay}</div>
-                <div class="token-stat-sub">Withdrawable 可提取</div>
+                <div class="token-stat-sub">Withdrawable 可提取数量: ${row.withdrawableTokenDisplay}</div>
                 <div class="token-stat-sub">Exact 具体值: ${row.withdrawableFullDisplay}</div>
               </div>
 
