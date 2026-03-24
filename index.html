@@ -352,22 +352,6 @@
         color: var(--green);
       }
 
-      .notes {
-        position: relative;
-        z-index: 1;
-        margin: 0;
-        padding-left: 18px;
-        color: var(--muted);
-        line-height: 1.8;
-      }
-
-      code {
-        background: rgba(255, 255, 255, 0.09);
-        padding: 2px 8px;
-        border-radius: 999px;
-        color: #fff;
-      }
-
       @media (max-width: 1200px) {
         .summary-strip {
           grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -463,32 +447,23 @@
       </div>
 
       <div class="glass-card section">
-        <h2 class="section-title">Latest Snapshot</h2>
+        <h2 class="section-title">Latest Snapshot 最新快照</h2>
         <div class="section-desc">这里把接口收到的核心数据浓缩到顶部，每次 fetch 成功后立即刷新。</div>
         <div class="summary-strip" id="summaryStrip"></div>
       </div>
 
       <div class="glass-card section">
-        <h2 class="section-title">Total Assets in USD</h2>
+        <h2 class="section-title">Total Assets in USD 总资产走势</h2>
         <div class="section-desc">最近 24 小时实时曲线。横轴为采样时间，纵轴为接口返回的 totalAssetsInUsd。</div>
         <div id="chart"></div>
       </div>
 
       <div class="glass-card section">
-        <h2 class="section-title">Token Overview</h2>
+        <h2 class="section-title">Token Overview 代币总览</h2>
         <div class="section-desc">所有 token 卡片都使用最新一次接口返回数据秒级刷新。</div>
         <div class="token-grid" id="tokenCardGrid"></div>
       </div>
 
-      <div class="glass-card section">
-        <h2 class="section-title">部署说明</h2>
-        <ul class="notes">
-          <li>文件名保存为 <code>index.html</code>。</li>
-          <li>部署到 Vercel 后，如果浏览器里有旧缓存，先点一次“清空 24h 数据”。</li>
-          <li><code>Withdrawable</code> 和 <code>Total Assets</code> 都按 token decimals 缩放后展示。</li>
-          <li>顶部“年化收益总额”使用前端实时重算值，避免接口异常大数直接污染 UI。</li>
-        </ul>
-      </div>
     </div>
 
     <script>
@@ -561,6 +536,12 @@
       function fmtCompactNumber(value, maxDigits = 2) {
         return new Intl.NumberFormat("en-US", {
           notation: "compact",
+          maximumFractionDigits: maxDigits,
+        }).format(safeNum(value));
+      }
+
+      function fmtFullNumber(value, maxDigits = 2) {
+        return new Intl.NumberFormat("en-US", {
           maximumFractionDigits: maxDigits,
         }).format(safeNum(value));
       }
@@ -677,12 +658,14 @@
             totalAssetsRaw,
             totalAssetsScaled,
             totalAssetsDisplay: fmtCompactNumber(totalAssetsScaled, 2),
+            totalAssetsFullDisplay: fmtFullNumber(totalAssetsScaled, 2),
             totalAssetsInUsd: tokenTvlUsd,
             assetPrice,
             decimals,
             withdrawableRaw,
             withdrawableScaled: liquidityScaled,
             withdrawableDisplay: fmtCompactNumber(liquidityScaled, 2),
+            withdrawableFullDisplay: fmtFullNumber(liquidityScaled, 2),
             liquidityInUsd: liquidityUsd,
             utilization,
             yearlyYieldUsd,
@@ -746,25 +729,25 @@
           {
             label: "Token 数量",
             value: String(latest.tokenCount || 0),
-            sub: "本次接口返回",
+            sub: "Token Count 本次返回",
           },
           {
-            label: "总流动性",
+            label: "Liquidity 总流动性",
             value: fmtCompactUsd(latest.totalLiquidityInUsd),
-            sub: "全部 withdrawable 折算 USD",
+            sub: "Withdrawable 折算 USD",
           },
           {
-            label: "综合 APR",
+            label: "APR 综合年化",
             value: fmtPctFromBpsLike(latest.blendedApr),
             sub: "按 TVL 加权",
           },
           {
-            label: "最大 TVL Token",
+            label: "Top TVL Token 最大 TVL",
             value: topToken ? (topToken.assetSymbol || topToken.symbol || "-") : "-",
             sub: topToken ? fmtCompactUsd(topToken.totalAssetsInUsd) : "-",
           },
           {
-            label: "该 Token 年化收益",
+            label: "Yield 年化收益",
             value: topToken ? fmtCompactUsd(topToken.yearlyYieldUsd) : "-",
             sub: topToken ? fmtPctFromBpsLike(topToken.totalRate) : "-",
           },
@@ -800,37 +783,39 @@
               </div>
               <div class="token-apr">
                 <div class="token-apr-value">${fmtPctFromBpsLike(row.totalRate)}</div>
-                <div class="token-apr-label">Net APR</div>
+                <div class="token-apr-label">Net APR 净年化</div>
               </div>
             </div>
 
             <div class="token-stats">
               <div>
-                <div class="token-stat-label">TVL</div>
+                <div class="token-stat-label">TVL 总锁仓</div>
                 <div class="token-stat-value">${fmtCompactUsd(row.totalAssetsInUsd)}</div>
-                <div class="token-stat-sub">Token Amount: ${row.totalAssetsDisplay}</div>
+                <div class="token-stat-sub">Token Amount 代币数量: ${row.totalAssetsDisplay}</div>
+                <div class="token-stat-sub">Exact 具体值: ${row.totalAssetsFullDisplay}</div>
               </div>
 
               <div>
-                <div class="token-stat-label">Liquidity</div>
+                <div class="token-stat-label">Liquidity 流动性</div>
                 <div class="token-stat-value">${row.withdrawableDisplay}</div>
-                <div class="token-stat-sub">Withdrawable</div>
+                <div class="token-stat-sub">Withdrawable 可提取</div>
+                <div class="token-stat-sub">Exact 具体值: ${row.withdrawableFullDisplay}</div>
               </div>
 
               <div>
-                <div class="token-stat-label">Utilization</div>
+                <div class="token-stat-label">Utilization 利用率</div>
                 <div class="token-stat-value ${row.utilization > 90 ? "accent-red" : ""}">${safeNum(row.utilization).toFixed(1)}%</div>
-                <div class="token-stat-sub">Based on TVL - Liquidity</div>
+                <div class="token-stat-sub">Based on TVL - Liquidity 基于总锁仓减流动性</div>
               </div>
 
               <div>
-                <div class="token-stat-label">Supply / Rewards</div>
+                <div class="token-stat-label">Supply / Rewards 存款利率 / 奖励</div>
                 <div class="token-stat-value">
                   <span class="accent-blue">${fmtPctFromBpsLike(row.supplyRate)}</span>
                   /
                   <span class="accent-green">${fmtPctFromBpsLike(row.rewardsRate)}</span>
                 </div>
-                <div class="token-stat-sub">Price ${fmtUsd(row.assetPrice)} | Yield ${fmtCompactUsd(row.yearlyYieldUsd)}</div>
+                <div class="token-stat-sub">Price 价格 ${fmtUsd(row.assetPrice)} | Yield 年化收益 ${fmtCompactUsd(row.yearlyYieldUsd)}</div>
               </div>
             </div>
           `;
@@ -855,8 +840,8 @@
               const datum = history[point.dataIndex];
               return [
                 '<div style="margin-bottom:6px;font-weight:700;">' + fmtDateTime(point.axisValue) + "</div>",
-                "<div>Total Assets: " + fmtUsd(point.data[1]) + "</div>",
-                "<div>Yearly Yield: " + fmtUsd(datum ? datum.yearlyYieldInUsd : 0) + "</div>",
+                "<div>Total Assets 总资产: " + fmtUsd(point.data[1]) + "</div>",
+                "<div>Yearly Yield 年化收益: " + fmtUsd(datum ? datum.yearlyYieldInUsd : 0) + "</div>",
               ].join("");
             },
           },
@@ -892,7 +877,7 @@
           },
           series: [
             {
-              name: "Total Assets in USD",
+              name: "Total Assets in USD 总资产",
               type: "line",
               smooth: true,
               showSymbol: false,
