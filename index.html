@@ -205,7 +205,28 @@
         margin-bottom: 16px;
         display: none;
       }
-      
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+      }
+      th, td {
+        text-align: left;
+        padding: 12px 10px;
+        border-bottom: 1px solid #e2e8f0;
+        vertical-align: top;
+      }
+      th {
+        color: #64748b;
+        font-weight: 600;
+        font-size: 13px;
+      }
+      code {
+        background: #f1f5f9;
+        border-radius: 8px;
+        padding: 2px 6px;
+      }
+      ul {
         margin: 10px 0 0;
         padding-left: 18px;
         color: #334155;
@@ -229,7 +250,10 @@
       <div class="topbar">
         <div>
           <h1>Fluid Lending 实时监控</h1>
-          <div class="sub">原生 HTML + JS + ECharts。前端v class="status"><span class="dot"></span><span id="runStatus">采集中</span></div>
+          <div class="sub">原生 HTML + JS + ECharts。前端每秒拉一次接口，自动保留最近 24 小时数据，适合免费部署到 Vercel。</div>
+        </div>
+        <div class="actions">
+          <div class="status"><span class="dot"></span><span id="runStatus">采集中</span></div>
           <button id="toggleBtn">暂停</button>
           <button class="secondary" id="refreshBtn">立即刷新</button>
           <button class="secondary" id="clearBtn">清空 24h 数据</button>
@@ -282,7 +306,30 @@
 
     <script>
       const API_URL = 'https://api.fluid.instadapp.io/v2/lending/56/tokens';
-      co  const parsed = JSON.parse(raw);
+      const STORAGE_KEY = 'fluid-lending-24h-history-html-v1';
+      const POLL_MS = 1000;
+      const RETENTION_MS = 24 * 60 * 60 * 1000;
+
+      let running = true;
+      let timer = null;
+      let history = loadHistory();
+      let chart = echarts.init(document.getElementById('chart'));
+
+      function safeNum(v) {
+        const n = Number(v);
+        return Number.isFinite(n) ? n : 0;
+      }
+
+      function pruneHistory(list) {
+        const cutoff = Date.now() - RETENTION_MS;
+        return list.filter(item => item.ts >= cutoff);
+      }
+
+      function loadHistory() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) return [];
+          const parsed = JSON.parse(raw);
           return Array.isArray(parsed) ? pruneHistory(parsed) : [];
         } catch {
           return [];
@@ -345,7 +392,12 @@
       }
 
       function buildPoint(payload) {
-        const tokens = Array.isArray(paylplyData && t.liquiditySupplyData.withdrawable);
+        const tokens = Array.isArray(payload && payload.data) ? payload.data : [];
+        const tokenMap = {};
+
+        tokens.forEach(t => {
+          const decimals = safeNum((t.asset && t.asset.decimals) || t.decimals || 18);
+          const withdrawableRaw = safeNum(t.liquiditySupplyData && t.liquiditySupplyData.withdrawable);
           const totalAssetsRaw = safeNum(t.totalAssets);
           const totalAssetsScaled = totalAssetsRaw / Math.pow(10, decimals);
           const liquidityScaled = withdrawableRaw / Math.pow(10, decimals);
@@ -373,12 +425,42 @@
 
         return {
           ts: Date.now(),
-          totalAssetsInUsd:y = 'block';
+          totalAssetsInUsd: safeNum(payload && payload.totalAssetsInUsd),
+          yearlyYieldInUsd: safeNum(payload && payload.yearlyYieldInUsd),
+          tokenMap,
+        };
+      }
+
+      async function fetchOnce() {
+        try {
+          const res = await fetch(API_URL, { cache: 'no-store' });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const json = await res.json();
+          const point = buildPoint(json);
+          history.push(point);
+          history = pruneHistory(history);
+          saveHistory();
+          render();
+          setError('');
+        } catch (err) {
+          setError('接口请求失败：' + (err && err.message ? err.message : '未知错误'));
+        }
+      }
+
+      function setError(msg) {
+        const box = document.getElementById('errorBox');
+        if (!msg) {
+          box.style.display = 'none';
+          box.textContent = '';
+          return;
+        }
+        box.style.display = 'block';
         box.textContent = msg;
       }
 
       function renderCards(latest) {
-        document.getElementById('totalAssetsValue').textContent = latest ? fmtUsd(latest.total      document.getElementById('yearlyYieldValue').textContent = latest ? fmtCompactUsd(latest.yearlyYieldInUsd) : '-';
+        document.getElementById('totalAssetsValue').textContent = latest ? fmtUsd(latest.totalAssetsInUsd) : '-';
+        document.getElementById('yearlyYieldValue').textContent = latest ? fmtCompactUsd(latest.yearlyYieldInUsd) : '-';
         document.getElementById('sampleCountValue').textContent = history.length.toLocaleString();
         document.getElementById('lastOkValue').textContent = latest ? fmtTime(latest.ts) : '-';
       }
@@ -432,7 +514,34 @@
 
       function renderChart() {
         const xData = history.map(item => item.ts);
-        const yData = history.map(item => item.totalAssetsInUs     formatter: function(value) {
+        const yData = history.map(item => item.totalAssetsInUsd);
+
+        chart.setOption({
+          animation: false,
+          tooltip: {
+            trigger: 'axis',
+            formatter: function(params) {
+              if (!params || !params.length) return '';
+              const p = params[0];
+              return [
+                '<div style="margin-bottom:6px;font-weight:600;">' + fmtDateTime(p.axisValue) + '</div>',
+                '<div>Total Assets in USD：' + fmtUsd(p.data) + '</div>'
+              ].join('');
+            }
+          },
+          grid: { left: 60, right: 24, top: 24, bottom: 50 },
+          xAxis: {
+            type: 'time',
+            axisLabel: {
+              formatter: function(value) {
+                return fmtTime(value);
+              }
+            }
+          },
+          yAxis: {
+            type: 'value',
+            axisLabel: {
+              formatter: function(value) {
                 return fmtCompactUsd(value);
               }
             },
