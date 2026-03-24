@@ -3,310 +3,454 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Fluid Lending 实时监控</title>
+    <title>Fluid Lending Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
     <style>
-      * { box-sizing: border-box; }
+      :root {
+        --bg: #0b0d12;
+        --panel: rgba(255, 255, 255, 0.06);
+        --panel-strong: rgba(255, 255, 255, 0.08);
+        --border: rgba(255, 255, 255, 0.08);
+        --text: #f5f7fb;
+        --muted: rgba(255, 255, 255, 0.62);
+        --muted-2: rgba(255, 255, 255, 0.42);
+        --green: #59f0a7;
+        --blue: #8db6ff;
+        --red: #ff7a8d;
+        --shadow: 0 20px 50px rgba(0, 0, 0, 0.28);
+        --radius-xl: 28px;
+        --radius-lg: 22px;
+        --radius-md: 18px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
       body {
         margin: 0;
-        font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-        background: #f8fafc;
-        color: #0f172a;
+        min-height: 100%;
+        background:
+          radial-gradient(circle at top left, rgba(79, 106, 255, 0.18), transparent 26%),
+          radial-gradient(circle at top right, rgba(72, 255, 180, 0.08), transparent 20%),
+          linear-gradient(180deg, #0a0c11 0%, #0d1016 50%, #090b10 100%);
+        color: var(--text);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
       }
-      .wrap {
-        max-width: 1280px;
+
+      .page {
+        max-width: 1380px;
         margin: 0 auto;
-        padding: 24px;
+        padding: 28px 20px 40px;
       }
+
       .topbar {
         display: flex;
         justify-content: space-between;
         align-items: flex-start;
-        gap: 16px;
+        gap: 20px;
         flex-wrap: wrap;
-        margin-bottom: 20px;
+        margin-bottom: 22px;
       }
-      h1 {
+
+      .title {
         margin: 0;
-        font-size: 32px;
-        line-height: 1.2;
+        font-size: 42px;
+        line-height: 1.05;
+        letter-spacing: -0.02em;
+        font-weight: 800;
       }
-      .sub {
-        margin-top: 8px;
-        color: #475569;
+
+      .subtitle {
+        margin-top: 10px;
+        color: var(--muted);
         font-size: 14px;
+        line-height: 1.6;
       }
+
       .actions {
         display: flex;
         gap: 10px;
         flex-wrap: wrap;
+        align-items: center;
       }
-      button {
-        border: 0;
-        border-radius: 14px;
-        padding: 10px 16px;
-        background: #0f172a;
-        color: white;
-        cursor: pointer;
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 46px;
+        padding: 0 16px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.07);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        color: var(--text);
+        box-shadow: var(--shadow);
         font-size: 14px;
       }
-      button.secondary {
-        background: white;
-        color: #0f172a;
-        border: 1px solid #cbd5e1;
+
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #7a82ff;
+        box-shadow: 0 0 12px rgba(122, 130, 255, 0.8);
       }
-      button:hover { opacity: 0.92; }
-      .grid {
+
+      button {
+        appearance: none;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.075);
+        color: var(--text);
+        min-height: 46px;
+        padding: 0 18px;
+        border-radius: 999px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 600;
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        box-shadow: var(--shadow);
+        transition: transform 0.16s ease, opacity 0.16s ease, background 0.16s ease;
+      }
+
+      button.primary {
+        background: linear-gradient(180deg, rgba(22, 28, 44, 0.98), rgba(10, 14, 24, 0.98));
+      }
+
+      button:hover {
+        opacity: 0.96;
+        transform: translateY(-1px);
+      }
+
+      .error {
+        display: none;
+        margin-bottom: 18px;
+        padding: 14px 16px;
+        border-radius: 18px;
+        border: 1px solid rgba(255, 122, 141, 0.25);
+        background: rgba(255, 122, 141, 0.08);
+        color: #ffd2d8;
+      }
+
+      .stats-grid {
         display: grid;
         grid-template-columns: repeat(4, minmax(0, 1fr));
         gap: 16px;
-        margin-bottom: 20px;
+        margin-bottom: 18px;
       }
-      .card {
-        background: white;
-        border-radius: 22px;
-        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
-        padding: 18px;
+
+      .glass-card {
+        position: relative;
+        overflow: hidden;
+        background: linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.045));
+        border: 1px solid var(--border);
+        border-radius: var(--radius-xl);
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(24px);
+        -webkit-backdrop-filter: blur(24px);
       }
-      .label {
-        color: #64748b;
+
+      .glass-card::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background: linear-gradient(180deg, rgba(255,255,255,0.055), transparent 35%);
+      }
+
+      .stat-card {
+        padding: 18px 20px;
+      }
+
+      .stat-label {
+        position: relative;
+        z-index: 1;
+        color: var(--muted);
         font-size: 13px;
-        margin-bottom: 8px;
+        margin-bottom: 10px;
       }
-      .value {
-        font-size: 28px;
-        font-weight: 700;
-        line-height: 1.2;
+
+      .stat-value {
+        position: relative;
+        z-index: 1;
+        font-size: 26px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        line-height: 1.1;
         word-break: break-word;
       }
-      .chart-card, .table-card, .note-card {
-        background: white;
-        border-radius: 24px;
-        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+
+      .section {
+        margin-bottom: 18px;
         padding: 18px;
-        margin-bottom: 20px;
       }
+
+      .section-title {
+        position: relative;
+        z-index: 1;
+        margin: 0 0 6px;
+        font-size: 26px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+      }
+
+      .section-desc {
+        position: relative;
+        z-index: 1;
+        margin-bottom: 12px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      #chart {
+        width: 100%;
+        height: 460px;
+      }
+
       .token-grid {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 18px;
       }
+
       .token-card {
         position: relative;
         overflow: hidden;
-        border-radius: 22px;
-        padding: 18px;
-        color: #e5eefb;
+        border-radius: var(--radius-lg);
+        padding: 18px 18px 16px;
+        color: #edf3ff;
         background:
-          radial-gradient(circle at top right, rgba(80, 255, 170, 0.14), transparent 28%),
-          linear-gradient(135deg, #171b33 0%, #212646 48%, #2b3158 100%);
-        border: 1px solid rgba(255,255,255,0.10);
-        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.18);
+          radial-gradient(circle at top right, rgba(85, 255, 182, 0.16), transparent 24%),
+          radial-gradient(circle at top left, rgba(125, 133, 255, 0.12), transparent 20%),
+          linear-gradient(135deg, #171b33 0%, #202646 52%, #2c3258 100%);
+        border: 1px solid rgba(255,255,255,0.1);
+        box-shadow: 0 18px 40px rgba(0, 0, 0, 0.25);
       }
+
       .token-card::after {
-        content: '';
+        content: "";
         position: absolute;
         inset: 0;
         pointer-events: none;
-        background: linear-gradient(180deg, rgba(255,255,255,0.03), transparent 30%);
+        background: linear-gradient(180deg, rgba(255,255,255,0.03), transparent 34%);
       }
+
       .token-top {
+        position: relative;
+        z-index: 1;
         display: flex;
         justify-content: space-between;
         align-items: flex-start;
         gap: 14px;
         margin-bottom: 18px;
       }
+
       .token-chain {
         font-size: 13px;
-        color: rgba(226, 232, 240, 0.7);
+        color: rgba(237, 243, 255, 0.68);
         margin-bottom: 4px;
       }
+
       .token-name {
-        font-size: 28px;
-        font-weight: 700;
-        letter-spacing: 0.2px;
+        font-size: 31px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        line-height: 1;
         color: #ffffff;
       }
+
       .token-apr {
         text-align: right;
       }
+
       .token-apr-value {
         font-size: 28px;
-        line-height: 1;
         font-weight: 800;
-        color: #5df2a7;
+        line-height: 1;
+        color: var(--green);
       }
+
       .token-apr-label {
         margin-top: 4px;
         font-size: 12px;
-        color: rgba(226, 232, 240, 0.6);
+        color: rgba(237, 243, 255, 0.58);
       }
+
       .token-stats {
+        position: relative;
+        z-index: 1;
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 16px 22px;
+        gap: 14px 22px;
       }
+
       .token-stat-label {
         font-size: 12px;
-        color: rgba(226, 232, 240, 0.58);
+        color: rgba(237, 243, 255, 0.56);
         margin-bottom: 4px;
       }
+
       .token-stat-value {
         font-size: 24px;
-        font-weight: 500;
+        font-weight: 600;
         color: #ffffff;
+        line-height: 1.12;
+        letter-spacing: -0.01em;
       }
+
       .token-stat-sub {
-        margin-top: 4px;
+        margin-top: 5px;
         font-size: 12px;
-        color: rgba(226, 232, 240, 0.72);
+        color: rgba(237, 243, 255, 0.74);
       }
-      .accent-red { color: #ff7285; }
-      .accent-blue { color: #84b7ff; }
-      .accent-green { color: #5df2a7; }
-      .section-title {
-        font-size: 20px;
-        font-weight: 700;
-        margin-bottom: 6px;
+
+      .accent-red {
+        color: var(--red);
       }
-      .section-desc {
-        color: #64748b;
-        font-size: 14px;
-        margin-bottom: 14px;
+
+      .accent-blue {
+        color: var(--blue);
       }
-      #chart {
-        width: 100%;
-        height: 460px;
+
+      .accent-green {
+        color: var(--green);
       }
-      .status {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        background: #eef2ff;
-        color: #3730a3;
-        border-radius: 999px;
-        padding: 8px 12px;
-        font-size: 13px;
-        font-weight: 600;
-      }
-      .dot {
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        background: #4f46e5;
-      }
-      .error {
-        background: #fef2f2;
-        color: #991b1b;
-        border: 1px solid #fecaca;
-        padding: 12px 14px;
-        border-radius: 16px;
-        margin-bottom: 16px;
-        display: none;
-      }
-      table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 14px;
-      }
-      th, td {
-        text-align: left;
-        padding: 12px 10px;
-        border-bottom: 1px solid #e2e8f0;
-        vertical-align: top;
-      }
-      th {
-        color: #64748b;
-        font-weight: 600;
-        font-size: 13px;
-      }
-      code {
-        background: #f1f5f9;
-        border-radius: 8px;
-        padding: 2px 6px;
-      }
-      ul {
-        margin: 10px 0 0;
+
+      .notes {
+        position: relative;
+        z-index: 1;
+        margin: 0;
         padding-left: 18px;
-        color: #334155;
-        line-height: 1.7;
+        color: var(--muted);
+        line-height: 1.8;
       }
-      @media (max-width: 980px) {
-        .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        .token-grid { grid-template-columns: 1fr; }
+
+      code {
+        background: rgba(255, 255, 255, 0.09);
+        padding: 2px 8px;
+        border-radius: 999px;
+        color: #fff;
       }
+
+      @media (max-width: 1080px) {
+        .stats-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .token-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
       @media (max-width: 640px) {
-        .wrap { padding: 14px; }
-        .grid { grid-template-columns: 1fr; }
-        h1 { font-size: 24px; }
-        .value { font-size: 22px; }
-        #chart { height: 340px; }
+        .page {
+          padding: 16px 12px 30px;
+        }
+
+        .title {
+          font-size: 30px;
+        }
+
+        .stats-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .section {
+          padding: 14px;
+        }
+
+        .stat-value {
+          font-size: 22px;
+        }
+
+        .token-name {
+          font-size: 26px;
+        }
+
+        .token-apr-value,
+        .token-stat-value {
+          font-size: 22px;
+        }
+
+        #chart {
+          height: 330px;
+        }
       }
     </style>
   </head>
   <body>
-    <div class="wrap">
+    <div class="page">
       <div class="topbar">
         <div>
-          <h1>Fluid Lending 实时监控</h1>
-          <div class="sub">原生 HTML + JS + ECharts。前端每秒拉一次接口，自动保留最近 24 小时数据，适合免费部署到 Vercel。</div>
+          <h1 class="title">Fluid Lending</h1>
+          <div class="subtitle">
+            苹果风格 mac 深色 UI。前端每秒拉一次接口，自动保留最近 24 小时数据。<br />
+            Withdrawable 已按 decimals 修复，yearlyYieldInUsd 也按 18 位精度修复。
+          </div>
         </div>
+
         <div class="actions">
-          <div class="status"><span class="dot"></span><span id="runStatus">采集中</span></div>
-          <button id="toggleBtn">暂停</button>
-          <button class="secondary" id="refreshBtn">立即刷新</button>
-          <button class="secondary" id="clearBtn">清空 24h 数据</button>
+          <div class="pill">
+            <span class="dot"></span>
+            <span id="runStatus">采集中</span>
+          </div>
+          <button id="toggleBtn" class="primary">暂停</button>
+          <button id="refreshBtn">立即刷新</button>
+          <button id="clearBtn">清空 24h 数据</button>
         </div>
       </div>
 
       <div class="error" id="errorBox"></div>
 
-      <div class="grid">
-        <div class="card">
-          <div class="label">当前总资产</div>
-          <div class="value" id="totalAssetsValue">-</div>
+      <div class="stats-grid">
+        <div class="glass-card stat-card">
+          <div class="stat-label">当前总资产</div>
+          <div class="stat-value" id="totalAssetsValue">-</div>
         </div>
-        <div class="card">
-          <div class="label">年化收益总额</div>
-          <div class="value" id="yearlyYieldValue">-</div>
+        <div class="glass-card stat-card">
+          <div class="stat-label">年化收益总额</div>
+          <div class="stat-value" id="yearlyYieldValue">-</div>
         </div>
-        <div class="card">
-          <div class="label">24h 样本数</div>
-          <div class="value" id="sampleCountValue">0</div>
+        <div class="glass-card stat-card">
+          <div class="stat-label">24h 样本数</div>
+          <div class="stat-value" id="sampleCountValue">0</div>
         </div>
-        <div class="card">
-          <div class="label">最后成功时间</div>
-          <div class="value" id="lastOkValue">-</div>
+        <div class="glass-card stat-card">
+          <div class="stat-label">最后成功时间</div>
+          <div class="stat-value" id="lastOkValue">-</div>
         </div>
       </div>
 
-      <div class="chart-card">
-        <div class="section-title">图 1：Total Assets in USD（最近 24 小时）</div>
-        <div class="section-desc">横轴为采样时间，纵轴为接口返回的 totalAssetsInUsd。页面默认每秒自动刷新一次。</div>
+      <div class="glass-card section">
+        <h2 class="section-title">Total Assets in USD</h2>
+        <div class="section-desc">最近 24 小时实时曲线。横轴为采样时间，纵轴为接口返回的 totalAssetsInUsd。</div>
         <div id="chart"></div>
       </div>
 
-      <div class="table-card">
-        <div class="section-title">最新 Token 数据</div>
-        <div class="section-desc">改成仪表盘卡片样式展示，金额使用紧凑格式，例如 5.44M / 20K / 1.7。</div>
+      <div class="glass-card section">
+        <h2 class="section-title">Token Overview</h2>
+        <div class="section-desc">更接近你截图的卡片样式。金额统一使用紧凑格式，例如 5.44M / 20K / 1.7。</div>
         <div class="token-grid" id="tokenCardGrid"></div>
       </div>
 
-      <div class="note-card">
-        <div class="section-title">部署说明</div>
-        <ul>
-          <li>把这个文件命名为 <code>index.html</code>。</li>
-          <li>直接上传到 Vercel 项目根目录即可。</li>
-          <li>这是纯前端页面，不依赖 Vercel Functions。</li>
-          <li>如果后面你要做更高频，建议改成 WebSocket 推送，而不是继续加快 fetch 轮询。</li>
+      <div class="glass-card section">
+        <h2 class="section-title">部署说明</h2>
+        <ul class="notes">
+          <li>文件名保存为 <code>index.html</code>。</li>
+          <li>部署到 Vercel 后，如果之前加载过旧版本，先点一次“清空 24h 数据”。</li>
+          <li>当前页面把 <code>Withdrawable</code> 按 token decimals 缩放。</li>
+          <li><code>yearlyYieldInUsd</code> 按 18 位精度缩放后再展示，所以不会再显示成离谱的 T 级天文数字。</li>
         </ul>
       </div>
     </div>
 
     <script>
       const API_URL = 'https://api.fluid.instadapp.io/v2/lending/56/tokens';
-      const STORAGE_KEY = 'fluid-lending-24h-history-html-v1';
+      const STORAGE_KEY = 'fluid-lending-24h-history-html-v3';
       const POLL_MS = 1000;
       const RETENTION_MS = 24 * 60 * 60 * 1000;
 
@@ -322,7 +466,7 @@
 
       function pruneHistory(list) {
         const cutoff = Date.now() - RETENTION_MS;
-        return list.filter(item => item.ts >= cutoff);
+        return list.filter((item) => item.ts >= cutoff);
       }
 
       function loadHistory() {
@@ -337,7 +481,20 @@
       }
 
       function saveHistory() {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(pruneHistory(history)));
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(pruneHistory(history)));
+        } catch {}
+      }
+
+      function setError(msg) {
+        const box = document.getElementById('errorBox');
+        if (!msg) {
+          box.style.display = 'none';
+          box.textContent = '';
+          return;
+        }
+        box.style.display = 'block';
+        box.textContent = msg;
       }
 
       function fmtUsd(value) {
@@ -348,25 +505,20 @@
         }).format(safeNum(value));
       }
 
-      function fmtCompactUsd(value) {
+      function fmtCompactUsd(value, maxDigits = 2) {
         return new Intl.NumberFormat('en-US', {
           style: 'currency',
           currency: 'USD',
           notation: 'compact',
-          maximumFractionDigits: 2,
+          maximumFractionDigits: maxDigits,
         }).format(safeNum(value));
       }
 
-      function fmtCompactNumber(value, maximumFractionDigits = 2) {
+      function fmtCompactNumber(value, maxDigits = 2) {
         return new Intl.NumberFormat('en-US', {
           notation: 'compact',
-          maximumFractionDigits,
+          maximumFractionDigits: maxDigits,
         }).format(safeNum(value));
-      }
-
-      function fmtCompactTokenAmount(rawValue, decimals, maximumFractionDigits = 2) {
-        const scaled = safeNum(rawValue) / Math.pow(10, decimals);
-        return fmtCompactNumber(scaled, maximumFractionDigits);
       }
 
       function fmtPctFromBpsLike(value) {
@@ -391,42 +543,118 @@
         }).format(new Date(ts));
       }
 
+      function shiftDecimalString(value, decimals) {
+        if (value === null || value === undefined) return '0';
+
+        let s = String(value).trim();
+        if (!s) return '0';
+
+        let sign = '';
+        if (s[0] === '-') {
+          sign = '-';
+          s = s.slice(1);
+        }
+
+        if (!/^\d+(\.\d+)?$/.test(s)) {
+          const fallback = Number(sign + s);
+          if (Number.isFinite(fallback)) {
+            return String(fallback / Math.pow(10, decimals));
+          }
+          return '0';
+        }
+
+        const parts = s.split('.');
+        let intPart = parts[0] || '0';
+        let fracPart = parts[1] || '';
+
+        intPart = intPart.replace(/^0+(?=\d)/, '');
+        if (intPart === '') intPart = '0';
+
+        const digits = (intPart + fracPart).replace(/^0+(?=\d)/, '') || '0';
+        const totalScale = decimals - fracPart.length;
+
+        let result;
+        if (totalScale >= 0) {
+          if (digits.length <= totalScale) {
+            const zeros = '0'.repeat(totalScale - digits.length);
+            result = '0.' + zeros + digits;
+          } else {
+            const idx = digits.length - totalScale;
+            const whole = digits.slice(0, idx);
+            const frac = digits.slice(idx);
+            result = frac ? whole + '.' + frac : whole;
+          }
+        } else {
+          result = digits + '0'.repeat(-totalScale);
+        }
+
+        result = result.replace(/^0+(?=\d)/, '');
+        if (result.startsWith('.')) result = '0' + result;
+        if (result.includes('.')) {
+          result = result.replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
+        }
+        if (result === '') result = '0';
+
+        return sign + result;
+      }
+
+      function scaleRawToNumber(rawValue, decimals) {
+        const shifted = shiftDecimalString(rawValue, decimals);
+        const num = Number(shifted);
+        return Number.isFinite(num) ? num : 0;
+      }
+
+      function formatScaledUsd(rawValue, decimals) {
+        const num = scaleRawToNumber(rawValue, decimals);
+        return fmtCompactUsd(num, 2);
+      }
+
+      function formatTokenCompact(rawValue, decimals, maximumFractionDigits = 2) {
+        const scaled = scaleRawToNumber(rawValue, decimals);
+        return fmtCompactNumber(scaled, maximumFractionDigits);
+      }
+
       function buildPoint(payload) {
         const tokens = Array.isArray(payload && payload.data) ? payload.data : [];
         const tokenMap = {};
 
-        tokens.forEach(t => {
+        tokens.forEach((t) => {
           const decimals = safeNum((t.asset && t.asset.decimals) || t.decimals || 18);
-          const withdrawableRaw = safeNum(t.liquiditySupplyData && t.liquiditySupplyData.withdrawable);
-          const totalAssetsRaw = safeNum(t.totalAssets);
-          const totalAssetsScaled = totalAssetsRaw / Math.pow(10, decimals);
-          const liquidityScaled = withdrawableRaw / Math.pow(10, decimals);
-          const utilization = totalAssetsScaled > 0 ? ((totalAssetsScaled - liquidityScaled) / totalAssetsScaled) * 100 : 0;
+          const withdrawableRaw = (t.liquiditySupplyData && t.liquiditySupplyData.withdrawable) || '0';
+          const totalAssetsRaw = t.totalAssets || '0';
+
+          const totalAssetsScaled = scaleRawToNumber(totalAssetsRaw, decimals);
+          const liquidityScaled = scaleRawToNumber(withdrawableRaw, decimals);
           const assetPrice = safeNum(t.asset && t.asset.price);
           const tokenTvlUsd = totalAssetsScaled * assetPrice;
+          const utilization = totalAssetsScaled > 0
+            ? ((totalAssetsScaled - liquidityScaled) / totalAssetsScaled) * 100
+            : 0;
 
           tokenMap[t.symbol] = {
             symbol: t.symbol,
-            name: t.name,
             assetSymbol: t.asset && t.asset.symbol,
             totalRate: safeNum(t.totalRate),
             supplyRate: safeNum(t.supplyRate),
             rewardsRate: safeNum(t.rewardsRate),
-            totalAssets: totalAssetsRaw,
-            totalAssetsDisplay: fmtCompactTokenAmount(t.totalAssets, decimals, 2),
+            totalAssetsRaw,
+            totalAssetsScaled,
+            totalAssetsDisplay: formatTokenCompact(totalAssetsRaw, decimals, 2),
             totalAssetsInUsd: tokenTvlUsd,
-            assetPrice: assetPrice,
+            assetPrice,
             decimals,
-            withdrawable: withdrawableRaw,
-            withdrawableDisplay: fmtCompactTokenAmount(withdrawableRaw, decimals, 2),
-            utilization: utilization,
+            withdrawableRaw,
+            withdrawableScaled: liquidityScaled,
+            withdrawableDisplay: formatTokenCompact(withdrawableRaw, decimals, 2),
+            utilization,
           };
         });
 
         return {
           ts: Date.now(),
           totalAssetsInUsd: safeNum(payload && payload.totalAssetsInUsd),
-          yearlyYieldInUsd: safeNum(payload && payload.yearlyYieldInUsd),
+          yearlyYieldInUsdRaw: (payload && payload.yearlyYieldInUsd) || '0',
+          yearlyYieldInUsdDisplay: formatScaledUsd((payload && payload.yearlyYieldInUsd) || '0', 18),
           tokenMap,
         };
       }
@@ -435,11 +663,14 @@
         try {
           const res = await fetch(API_URL, { cache: 'no-store' });
           if (!res.ok) throw new Error('HTTP ' + res.status);
+
           const json = await res.json();
           const point = buildPoint(json);
+
           history.push(point);
           history = pruneHistory(history);
           saveHistory();
+
           render();
           setError('');
         } catch (err) {
@@ -447,33 +678,25 @@
         }
       }
 
-      function setError(msg) {
-        const box = document.getElementById('errorBox');
-        if (!msg) {
-          box.style.display = 'none';
-          box.textContent = '';
-          return;
-        }
-        box.style.display = 'block';
-        box.textContent = msg;
-      }
-
       function renderCards(latest) {
-        document.getElementById('totalAssetsValue').textContent = latest ? fmtUsd(latest.totalAssetsInUsd) : '-';
-        document.getElementById('yearlyYieldValue').textContent = latest ? fmtCompactUsd(latest.yearlyYieldInUsd) : '-';
+        document.getElementById('totalAssetsValue').textContent = latest ? fmtCompactUsd(latest.totalAssetsInUsd) : '-';
+        document.getElementById('yearlyYieldValue').textContent = latest ? latest.yearlyYieldInUsdDisplay : '-';
         document.getElementById('sampleCountValue').textContent = history.length.toLocaleString();
         document.getElementById('lastOkValue').textContent = latest ? fmtTime(latest.ts) : '-';
       }
 
-      function renderTable(latest) {
+      function renderTokenCards(latest) {
         const grid = document.getElementById('tokenCardGrid');
         grid.innerHTML = '';
+
         if (!latest || !latest.tokenMap) return;
 
-        const rows = Object.values(latest.tokenMap).sort((a, b) => b.totalAssets - a.totalAssets);
-        rows.forEach(row => {
+        const rows = Object.values(latest.tokenMap).sort((a, b) => b.totalAssetsScaled - a.totalAssetsScaled);
+
+        rows.forEach((row) => {
           const card = document.createElement('div');
           card.className = 'token-card';
+
           card.innerHTML = `
             <div class="token-top">
               <div>
@@ -485,79 +708,124 @@
                 <div class="token-apr-label">Net APR</div>
               </div>
             </div>
+
             <div class="token-stats">
               <div>
                 <div class="token-stat-label">TVL</div>
-                <div class="token-stat-value">${fmtCompactUsd(row.totalAssetsInUsd || 0)}</div>
+                <div class="token-stat-value">${fmtCompactUsd(row.totalAssetsInUsd)}</div>
                 <div class="token-stat-sub">Token Amount: ${row.totalAssetsDisplay}</div>
               </div>
+
               <div>
                 <div class="token-stat-label">Liquidity</div>
                 <div class="token-stat-value">${row.withdrawableDisplay}</div>
                 <div class="token-stat-sub">Withdrawable</div>
               </div>
+
               <div>
                 <div class="token-stat-label">Utilization</div>
                 <div class="token-stat-value ${row.utilization > 90 ? 'accent-red' : ''}">${safeNum(row.utilization).toFixed(1)}%</div>
                 <div class="token-stat-sub">Based on TVL - Liquidity</div>
               </div>
+
               <div>
                 <div class="token-stat-label">Supply / Rewards</div>
-                <div class="token-stat-value"><span class="accent-blue">${fmtPctFromBpsLike(row.supplyRate)}</span> / <span class="accent-green">${fmtPctFromBpsLike(row.rewardsRate)}</span></div>
+                <div class="token-stat-value">
+                  <span class="accent-blue">${fmtPctFromBpsLike(row.supplyRate)}</span>
+                  /
+                  <span class="accent-green">${fmtPctFromBpsLike(row.rewardsRate)}</span>
+                </div>
                 <div class="token-stat-sub">Price ${fmtUsd(row.assetPrice)}</div>
               </div>
             </div>
           `;
+
           grid.appendChild(card);
         });
       }
 
       function renderChart() {
-        const xData = history.map(item => item.ts);
-        const yData = history.map(item => item.totalAssetsInUsd);
+        const data = history.map((item) => [item.ts, item.totalAssetsInUsd]);
 
         chart.setOption({
+          backgroundColor: 'transparent',
           animation: false,
           tooltip: {
             trigger: 'axis',
-            formatter: function(params) {
+            backgroundColor: 'rgba(18, 22, 32, 0.92)',
+            borderColor: 'rgba(255,255,255,0.08)',
+            textStyle: {
+              color: '#f5f7fb',
+            },
+            formatter(params) {
               if (!params || !params.length) return '';
               const p = params[0];
               return [
-                '<div style="margin-bottom:6px;font-weight:600;">' + fmtDateTime(p.axisValue) + '</div>',
-                '<div>Total Assets in USD：' + fmtUsd(p.data) + '</div>'
+                '<div style="margin-bottom:6px;font-weight:700;">' + fmtDateTime(p.axisValue) + '</div>',
+                '<div>Total Assets: ' + fmtUsd(p.data[1]) + '</div>',
               ].join('');
-            }
+            },
           },
-          grid: { left: 60, right: 24, top: 24, bottom: 50 },
+          grid: {
+            left: 54,
+            right: 18,
+            top: 18,
+            bottom: 36,
+          },
           xAxis: {
             type: 'time',
             axisLabel: {
-              formatter: function(value) {
+              color: 'rgba(255,255,255,0.52)',
+              formatter(value) {
                 return fmtTime(value);
-              }
-            }
+              },
+            },
+            axisLine: {
+              lineStyle: {
+                color: 'rgba(255,255,255,0.12)',
+              },
+            },
+            splitLine: {
+              show: false,
+            },
           },
           yAxis: {
             type: 'value',
             axisLabel: {
-              formatter: function(value) {
+              color: 'rgba(255,255,255,0.52)',
+              formatter(value) {
                 return fmtCompactUsd(value);
-              }
+              },
             },
-            splitLine: { lineStyle: { type: 'dashed' } }
+            axisLine: {
+              show: false,
+            },
+            splitLine: {
+              lineStyle: {
+                color: 'rgba(255,255,255,0.08)',
+                type: 'dashed',
+              },
+            },
           },
           series: [
             {
               name: 'Total Assets in USD',
               type: 'line',
-              showSymbol: false,
               smooth: true,
-              data: xData.map((x, i) => [x, yData[i]]),
-              lineStyle: { width: 2 },
-              areaStyle: { opacity: 0.08 }
-            }
-          ]
+              showSymbol: false,
+              data,
+              lineStyle: {
+                width: 3,
+                color: '#88a4ff',
+              },
+              areaStyle: {
+                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                  { offset: 0, color: 'rgba(136,164,255,0.28)' },
+                  { offset: 1, color: 'rgba(136,164,255,0.03)' },
+                ]),
+              },
+            },
+          ],
         });
       }
 
@@ -569,7 +837,7 @@
       function render() {
         const latest = history.length ? history[history.length - 1] : null;
         renderCards(latest);
-        renderTable(latest);
+        renderTokenCards(latest);
         renderChart();
         renderStatus();
       }
