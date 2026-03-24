@@ -492,3 +492,461 @@
     </script>
   </body>
 </html>
+        font-size: 14px;
+      }
+      .actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      button {
+        border: 0;
+        border-radius: 14px;
+        padding: 10px 16px;
+        background: #0f172a;
+        color: white;
+        cursor: pointer;
+        font-size: 14px;
+      }
+      button.secondary {
+        background: white;
+        color: #0f172a;
+        border: 1px solid #cbd5e1;
+      }
+      button:hover { opacity: 0.92; }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 16px;
+        margin-bottom: 20px;
+      }
+      .card {
+        background: white;
+        border-radius: 22px;
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+        padding: 18px;
+      }
+      .label {
+        color: #64748b;
+        font-size: 13px;
+        margin-bottom: 8px;
+      }
+      .value {
+        font-size: 28px;
+        font-weight: 700;
+        line-height: 1.2;
+        word-break: break-word;
+      }
+      .chart-card, .table-card, .note-card {
+        background: white;
+        border-radius: 24px;
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+        padding: 18px;
+        margin-bottom: 20px;
+      }
+      .section-title {
+        font-size: 20px;
+        font-weight: 700;
+        margin-bottom: 6px;
+      }
+      .section-desc {
+        color: #64748b;
+        font-size: 14px;
+        margin-bottom: 14px;
+      }
+      #chart {
+        width: 100%;
+        height: 460px;
+      }
+      .status {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: #eef2ff;
+        color: #3730a3;
+        border-radius: 999px;
+        padding: 8px 12px;
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #4f46e5;
+      }
+      .error {
+        background: #fef2f2;
+        color: #991b1b;
+        border: 1px solid #fecaca;
+        padding: 12px 14px;
+        border-radius: 16px;
+        margin-bottom: 16px;
+        display: none;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+      }
+      th, td {
+        text-align: left;
+        padding: 12px 10px;
+        border-bottom: 1px solid #e2e8f0;
+        vertical-align: top;
+      }
+      th {
+        color: #64748b;
+        font-weight: 600;
+        font-size: 13px;
+      }
+      code {
+        background: #f1f5f9;
+        border-radius: 8px;
+        padding: 2px 6px;
+      }
+      ul {
+        margin: 10px 0 0;
+        padding-left: 18px;
+        color: #334155;
+        line-height: 1.7;
+      }
+      @media (max-width: 980px) {
+        .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      }
+      @media (max-width: 640px) {
+        .wrap { padding: 14px; }
+        .grid { grid-template-columns: 1fr; }
+        h1 { font-size: 24px; }
+        .value { font-size: 22px; }
+        #chart { height: 340px; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="topbar">
+        <div>
+          <h1>Fluid Lending 实时监控</h1>
+          <div class="sub">原生 HTML + JS + ECharts。前端每秒拉一次接口，自动保留最近 24 小时数据，适合免费部署到 Vercel。</div>
+        </div>
+        <div class="actions">
+          <div class="status"><span class="dot"></span><span id="runStatus">采集中</span></div>
+          <button id="toggleBtn">暂停</button>
+          <button class="secondary" id="refreshBtn">立即刷新</button>
+          <button class="secondary" id="clearBtn">清空 24h 数据</button>
+        </div>
+      </div>
+
+      <div class="error" id="errorBox"></div>
+
+      <div class="grid">
+        <div class="card">
+          <div class="label">当前总资产</div>
+          <div class="value" id="totalAssetsValue">-</div>
+        </div>
+        <div class="card">
+          <div class="label">年化收益总额</div>
+          <div class="value" id="yearlyYieldValue">-</div>
+        </div>
+        <div class="card">
+          <div class="label">24h 样本数</div>
+          <div class="value" id="sampleCountValue">0</div>
+        </div>
+        <div class="card">
+          <div class="label">最后成功时间</div>
+          <div class="value" id="lastOkValue">-</div>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <div class="section-title">图 1：Total Assets in USD（最近 24 小时）</div>
+        <div class="section-desc">横轴为采样时间，纵轴为接口返回的 totalAssetsInUsd。页面默认每秒自动刷新一次。</div>
+        <div id="chart"></div>
+      </div>
+
+      <div class="table-card">
+        <div class="section-title">最新 Token 数据</div>
+        <div class="section-desc">按 totalAssets 降序实时展示 totalRate / supplyRate / rewardsRate。</div>
+        <div style="overflow:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>Token</th>
+                <th>Underlying</th>
+                <th>Total Rate</th>
+                <th>Supply Rate</th>
+                <th>Rewards Rate</th>
+                <th>Price</th>
+                <th>Withdrawable</th>
+              </tr>
+            </thead>
+            <tbody id="tokenTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="note-card">
+        <div class="section-title">部署说明</div>
+        <ul>
+          <li>把这个文件命名为 <code>index.html</code>。</li>
+          <li>直接上传到 Vercel 项目根目录即可。</li>
+          <li>这是纯前端页面，不依赖 Vercel Functions。</li>
+          <li>如果后面你要做更高频，建议改成 WebSocket 推送，而不是继续加快 fetch 轮询。</li>
+        </ul>
+      </div>
+    </div>
+
+    <script>
+      const API_URL = 'https://api.fluid.instadapp.io/v2/lending/56/tokens';
+      const STORAGE_KEY = 'fluid-lending-24h-history-html-v1';
+      const POLL_MS = 1000;
+      const RETENTION_MS = 24 * 60 * 60 * 1000;
+
+      let running = true;
+      let timer = null;
+      let history = loadHistory();
+      let chart = echarts.init(document.getElementById('chart'));
+
+      function safeNum(v) {
+        const n = Number(v);
+        return Number.isFinite(n) ? n : 0;
+      }
+
+      function pruneHistory(list) {
+        const cutoff = Date.now() - RETENTION_MS;
+        return list.filter(item => item.ts >= cutoff);
+      }
+
+      function loadHistory() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) return [];
+          const parsed = JSON.parse(raw);
+          return Array.isArray(parsed) ? pruneHistory(parsed) : [];
+        } catch {
+          return [];
+        }
+      }
+
+      function saveHistory() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(pruneHistory(history)));
+      }
+
+      function fmtUsd(value) {
+        return new Intl.NumberFormat('en-US', {
+          style: 'currency',
+          currency: 'USD',
+          maximumFractionDigits: 2,
+        }).format(safeNum(value));
+      }
+
+      function fmtCompactUsd(value) {
+        return new Intl.NumberFormat('en-US', {
+          style: 'currency',
+          currency: 'USD',
+          notation: 'compact',
+          maximumFractionDigits: 2,
+        }).format(safeNum(value));
+      }
+
+      function fmtPctFromBpsLike(value) {
+        return (safeNum(value) / 100).toFixed(2) + '%';
+      }
+
+      function fmtTime(ts) {
+        return new Intl.DateTimeFormat('zh-CN', {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        }).format(new Date(ts));
+      }
+
+      function fmtDateTime(ts) {
+        return new Intl.DateTimeFormat('zh-CN', {
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        }).format(new Date(ts));
+      }
+
+      function buildPoint(payload) {
+        const tokens = Array.isArray(payload && payload.data) ? payload.data : [];
+        const tokenMap = {};
+
+        tokens.forEach(t => {
+          tokenMap[t.symbol] = {
+            symbol: t.symbol,
+            name: t.name,
+            assetSymbol: t.asset && t.asset.symbol,
+            totalRate: safeNum(t.totalRate),
+            supplyRate: safeNum(t.supplyRate),
+            rewardsRate: safeNum(t.rewardsRate),
+            totalAssets: safeNum(t.totalAssets),
+            assetPrice: safeNum(t.asset && t.asset.price),
+            withdrawable: safeNum(t.liquiditySupplyData && t.liquiditySupplyData.withdrawable),
+          };
+        });
+
+        return {
+          ts: Date.now(),
+          totalAssetsInUsd: safeNum(payload && payload.totalAssetsInUsd),
+          yearlyYieldInUsd: safeNum(payload && payload.yearlyYieldInUsd),
+          tokenMap,
+        };
+      }
+
+      async function fetchOnce() {
+        try {
+          const res = await fetch(API_URL, { cache: 'no-store' });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const json = await res.json();
+          const point = buildPoint(json);
+          history.push(point);
+          history = pruneHistory(history);
+          saveHistory();
+          render();
+          setError('');
+        } catch (err) {
+          setError('接口请求失败：' + (err && err.message ? err.message : '未知错误'));
+        }
+      }
+
+      function setError(msg) {
+        const box = document.getElementById('errorBox');
+        if (!msg) {
+          box.style.display = 'none';
+          box.textContent = '';
+          return;
+        }
+        box.style.display = 'block';
+        box.textContent = msg;
+      }
+
+      function renderCards(latest) {
+        document.getElementById('totalAssetsValue').textContent = latest ? fmtUsd(latest.totalAssetsInUsd) : '-';
+        document.getElementById('yearlyYieldValue').textContent = latest ? fmtCompactUsd(latest.yearlyYieldInUsd) : '-';
+        document.getElementById('sampleCountValue').textContent = history.length.toLocaleString();
+        document.getElementById('lastOkValue').textContent = latest ? fmtTime(latest.ts) : '-';
+      }
+
+      function renderTable(latest) {
+        const tbody = document.getElementById('tokenTableBody');
+        tbody.innerHTML = '';
+        if (!latest || !latest.tokenMap) return;
+
+        const rows = Object.values(latest.tokenMap).sort((a, b) => b.totalAssets - a.totalAssets);
+        rows.forEach(row => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><strong>${row.symbol || '-'}</strong></td>
+            <td>${row.assetSymbol || '-'}</td>
+            <td>${fmtPctFromBpsLike(row.totalRate)}</td>
+            <td>${fmtPctFromBpsLike(row.supplyRate)}</td>
+            <td>${fmtPctFromBpsLike(row.rewardsRate)}</td>
+            <td>${fmtUsd(row.assetPrice)}</td>
+            <td>${row.withdrawable.toLocaleString()}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+
+      function renderChart() {
+        const xData = history.map(item => item.ts);
+        const yData = history.map(item => item.totalAssetsInUsd);
+
+        chart.setOption({
+          animation: false,
+          tooltip: {
+            trigger: 'axis',
+            formatter: function(params) {
+              if (!params || !params.length) return '';
+              const p = params[0];
+              return [
+                '<div style="margin-bottom:6px;font-weight:600;">' + fmtDateTime(p.axisValue) + '</div>',
+                '<div>Total Assets in USD：' + fmtUsd(p.data) + '</div>'
+              ].join('');
+            }
+          },
+          grid: { left: 60, right: 24, top: 24, bottom: 50 },
+          xAxis: {
+            type: 'time',
+            axisLabel: {
+              formatter: function(value) {
+                return fmtTime(value);
+              }
+            }
+          },
+          yAxis: {
+            type: 'value',
+            axisLabel: {
+              formatter: function(value) {
+                return fmtCompactUsd(value);
+              }
+            },
+            splitLine: { lineStyle: { type: 'dashed' } }
+          },
+          series: [
+            {
+              name: 'Total Assets in USD',
+              type: 'line',
+              showSymbol: false,
+              smooth: true,
+              data: xData.map((x, i) => [x, yData[i]]),
+              lineStyle: { width: 2 },
+              areaStyle: { opacity: 0.08 }
+            }
+          ]
+        });
+      }
+
+      function renderStatus() {
+        document.getElementById('runStatus').textContent = running ? '采集中' : '已暂停';
+        document.getElementById('toggleBtn').textContent = running ? '暂停' : '继续';
+      }
+
+      function render() {
+        const latest = history.length ? history[history.length - 1] : null;
+        renderCards(latest);
+        renderTable(latest);
+        renderChart();
+        renderStatus();
+      }
+
+      function startPolling() {
+        stopPolling();
+        timer = setInterval(fetchOnce, POLL_MS);
+      }
+
+      function stopPolling() {
+        if (timer) {
+          clearInterval(timer);
+          timer = null;
+        }
+      }
+
+      document.getElementById('toggleBtn').addEventListener('click', () => {
+        running = !running;
+        if (running) startPolling();
+        else stopPolling();
+        renderStatus();
+      });
+
+      document.getElementById('refreshBtn').addEventListener('click', fetchOnce);
+
+      document.getElementById('clearBtn').addEventListener('click', () => {
+        history = [];
+        localStorage.removeItem(STORAGE_KEY);
+        render();
+      });
+
+      window.addEventListener('resize', () => chart.resize());
+
+      render();
+      fetchOnce();
+      startPolling();
+    </script>
+  </body>
+</html>
