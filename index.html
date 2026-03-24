@@ -191,11 +191,35 @@
         margin-bottom: 18px;
       }
 
+      .alert-strip {
+        display: grid;
+        grid-template-columns: 1.2fr 1fr 1fr auto;
+        gap: 12px;
+        align-items: stretch;
+      }
+
       .summary-item {
         padding: 14px 16px;
         border-radius: var(--radius-md);
         border: 1px solid var(--border);
         background: rgba(255, 255, 255, 0.04);
+      }
+
+      .summary-item.good {
+        border-color: rgba(89, 240, 167, 0.22);
+      }
+
+      .summary-item.warn {
+        border-color: rgba(255, 122, 141, 0.28);
+      }
+
+      .alert-actions {
+        display: flex;
+        align-items: stretch;
+      }
+
+      .alert-actions button {
+        width: 100%;
       }
 
       .summary-item-label {
@@ -363,6 +387,7 @@
           grid-template-columns: repeat(2, minmax(0, 1fr));
         }
 
+        .alert-strip,
         .token-grid {
           grid-template-columns: 1fr;
         }
@@ -378,6 +403,7 @@
         }
 
         .stats-grid,
+        .alert-strip,
         .summary-strip {
           grid-template-columns: 1fr;
         }
@@ -447,6 +473,31 @@
       </div>
 
       <div class="glass-card section">
+        <h2 class="section-title">Alert Status 告警状态</h2>
+        <div class="section-desc">后端 Bark 轮询状态和 USDT 流动性阈值监控。这里的数据来自服务端，不依赖页面前端轮询。</div>
+        <div class="alert-strip">
+          <div class="summary-item" id="alertStateCard">
+            <div class="summary-item-label">Alert 告警状态</div>
+            <div class="summary-item-value" id="alertStateValue">加载中</div>
+            <div class="summary-item-sub" id="alertStateSub">等待后端返回</div>
+          </div>
+          <div class="summary-item">
+            <div class="summary-item-label">Backend Liquidity 后端流动性</div>
+            <div class="summary-item-value" id="backendLiquidityValue">-</div>
+            <div class="summary-item-sub" id="backendLiquiditySub">-</div>
+          </div>
+          <div class="summary-item">
+            <div class="summary-item-label">Polling 轮询状态</div>
+            <div class="summary-item-value" id="backendPollingValue">-</div>
+            <div class="summary-item-sub" id="backendPollingSub">-</div>
+          </div>
+          <div class="alert-actions">
+            <button id="testBarkBtn">测试 Bark 推送</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="glass-card section">
         <h2 class="section-title">Latest Snapshot 最新快照</h2>
         <div class="section-desc">这里把接口收到的核心数据浓缩到顶部，每次 fetch 成功后立即刷新。</div>
         <div class="summary-strip" id="summaryStrip"></div>
@@ -475,6 +526,7 @@
       let running = true;
       let timer = null;
       let inFlight = false;
+      let alertTimer = null;
       let history = loadHistory();
       const chart = echarts.init(document.getElementById("chart"));
 
@@ -560,6 +612,18 @@
 
       function fmtPctFromBpsLike(value) {
         return (safeNum(value) / 100).toFixed(2) + "%";
+      }
+
+      function fmtDateTimeFull(ts) {
+        if (!ts) return "-";
+        return new Intl.DateTimeFormat("zh-CN", {
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        }).format(new Date(ts));
       }
 
       function fmtTime(ts) {
@@ -833,6 +897,90 @@
         });
       }
 
+      function renderAlertStatus(payload) {
+        const status = payload && payload.state ? payload.state : null;
+        const config = payload && payload.config ? payload.config : null;
+        const alertCard = document.getElementById("alertStateCard");
+        const alertStateValue = document.getElementById("alertStateValue");
+        const alertStateSub = document.getElementById("alertStateSub");
+        const backendLiquidityValue = document.getElementById("backendLiquidityValue");
+        const backendLiquiditySub = document.getElementById("backendLiquiditySub");
+        const backendPollingValue = document.getElementById("backendPollingValue");
+        const backendPollingSub = document.getElementById("backendPollingSub");
+
+        alertCard.classList.remove("good", "warn");
+
+        if (!status || !config) {
+          alertStateValue.textContent = "不可用";
+          alertStateSub.textContent = "后端状态接口暂不可达";
+          backendLiquidityValue.textContent = "-";
+          backendLiquiditySub.textContent = "-";
+          backendPollingValue.textContent = "-";
+          backendPollingSub.textContent = "-";
+          return;
+        }
+
+        const thresholdText = fmtCompactUsd(config.thresholdUsd);
+        if (status.alertTriggered) {
+          alertCard.classList.add("warn");
+          alertStateValue.textContent = "已触发";
+          alertStateSub.textContent = `USDT 流动性低于阈值 ${thresholdText}`;
+        } else {
+          alertCard.classList.add("good");
+          alertStateValue.textContent = "正常";
+          alertStateSub.textContent = `阈值 ${thresholdText}，恢复比例 ${safeNum(config.recoverRatio).toFixed(2)}x`;
+        }
+
+        backendLiquidityValue.textContent = status.lastLiquidityUsd ? fmtCompactUsd(status.lastLiquidityUsd) : "-";
+        backendLiquiditySub.textContent = status.lastLiquidityTokens
+          ? `${fmtTokenExact(status.lastLiquidityTokens)} ${config.symbol}`
+          : "等待首次轮询";
+
+        backendPollingValue.textContent = status.lastError ? "异常" : "运行中";
+        backendPollingSub.textContent = status.lastError
+          ? `错误: ${status.lastError}`
+          : `上次成功 ${fmtDateTimeFull(status.lastSuccessAt)} | 下次 ${fmtDateTimeFull(status.nextPollAt)}`;
+      }
+
+      async function refreshAlertStatus() {
+        try {
+          const res = await fetch("/api/alert-status", { cache: "no-store" });
+          const json = await res.json();
+          if (!res.ok || !json.ok) {
+            throw new Error(json.error || "alert status unavailable");
+          }
+          renderAlertStatus(json);
+        } catch (err) {
+          renderAlertStatus(null);
+        }
+      }
+
+      async function sendTestBark() {
+        const btn = document.getElementById("testBarkBtn");
+        const original = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = "发送中...";
+
+        try {
+          const res = await fetch("/api/test-bark", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+          });
+          const json = await res.json();
+          if (!res.ok || !json.ok) {
+            throw new Error(json.error || "Bark test failed");
+          }
+          setError("Bark 测试推送已发送，请检查手机。");
+          setTimeout(() => setError(""), 2500);
+          await refreshAlertStatus();
+        } catch (err) {
+          setError("Bark 测试失败：" + (err && err.message ? err.message : "未知错误"));
+        } finally {
+          btn.disabled = false;
+          btn.textContent = original;
+        }
+      }
+
       function renderChart() {
         const data = history.map((item) => [item.ts, item.totalAssetsInUsd]);
 
@@ -955,6 +1103,7 @@
       });
 
       document.getElementById("refreshBtn").addEventListener("click", fetchOnce);
+      document.getElementById("testBarkBtn").addEventListener("click", sendTestBark);
 
       document.getElementById("clearBtn").addEventListener("click", () => {
         history = [];
@@ -965,6 +1114,8 @@
       window.addEventListener("resize", () => chart.resize());
 
       render();
+      refreshAlertStatus();
+      alertTimer = setInterval(refreshAlertStatus, 10000);
       fetchOnce().finally(queueNextPoll);
     </script>
   </body>

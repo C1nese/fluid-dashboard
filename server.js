@@ -1,8 +1,10 @@
+require("dotenv").config();
+
 const express = require("express");
 const path = require("path");
 
 const { getConfig } = require("./lib/config");
-const { getAlertStatus, startAlerts } = require("./lib/lending-alerts");
+const { getAlertStatus, sendTestBark, startAlerts } = require("./lib/lending-alerts");
 
 const app = express();
 const config = getConfig();
@@ -23,6 +25,21 @@ app.get("/api/health", (req, res) => {
 app.get("/api/alert-status", (req, res) => {
   res.setHeader("Cache-Control", "no-store");
   res.status(200).json(getAlertStatus());
+});
+
+app.post("/api/test-bark", async (req, res) => {
+  try {
+    await sendTestBark();
+    res.status(200).json({
+      ok: true,
+      message: "Bark test notification sent"
+    });
+  } catch (error) {
+    res.status(500).json({
+      ok: false,
+      error: error.message
+    });
+  }
 });
 
 app.get("*", (req, res) => {

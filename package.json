@@ -9,6 +9,7 @@
     "check": "node --check server.js && node --check lib/config.js && node --check lib/lending-alerts.js"
   },
   "dependencies": {
+    "dotenv": "^16.4.7",
     "express": "^4.21.2"
   }
 }
